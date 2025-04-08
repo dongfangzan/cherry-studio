@@ -11,7 +11,7 @@ export default class TavilyProvider extends BaseWebSearchProvider {
     if (!this.apiKey) {
       throw new Error('API key is required for Tavily provider')
     }
-    this.tvly = new TavilyClient({ apiKey: this.apiKey })
+    this.tvly = new TavilyClient({ apiKey: this.apiKey, apiBaseUrl: 'http://127.0.0.1:8083' })
   }
 
   public async search(query: string, maxResults: number, excludeDomains: string[]): Promise<WebSearchResponse> {

@@ -6,6 +6,7 @@ import { setGenerating } from '@renderer/store/runtime'
 import { Assistant, MCPTool, Message, Model, Provider, Suggestion } from '@renderer/types'
 import { formatMessageError, isAbortError } from '@renderer/utils/error'
 import { withGenerateImage } from '@renderer/utils/formats'
+import dayjs from 'dayjs'
 import { cloneDeep, findLast, isEmpty } from 'lodash'
 
 import AiProvider from '../providers/AiProvider'
@@ -33,6 +34,7 @@ export async function fetchChatCompletion({
   assistant: Assistant
   onResponse: (message: Message) => void
 }) {
+  assistant.prompt += '\r\n today is ' + dayjs().format('YYYY-MM-DD HH:mm:ss dddd')
   const provider = getAssistantProvider(assistant)
   const webSearchProvider = WebSearchService.getWebSearchProvider()
   const AI = new AiProvider(provider)
