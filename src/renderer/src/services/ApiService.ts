@@ -61,7 +61,6 @@ export async function fetchChatCompletion({
     // Search web
     if (WebSearchService.isWebSearchEnabled() && assistant.enableWebSearch && assistant.model) {
       const webSearchParams = getOpenAIWebSearchParams(assistant, assistant.model)
-
       if (isEmpty(webSearchParams) && !isOpenAIWebSearch(assistant.model)) {
         const lastMessage = findLast(messages, (m) => m.role === 'user')
         const lastAnswer = findLast(messages, (m) => m.role === 'assistant')
@@ -253,7 +252,7 @@ export async function fetchChatCompletion({
         }
       }
     }
-    console.log('message', message)
+    // console.log('message', message)
   } catch (error: any) {
     if (isAbortError(error)) {
       message.status = 'paused'
