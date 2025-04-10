@@ -159,6 +159,14 @@
       "save": "Сохранить",
       "settings.code_collapsible": "Блок кода свернут",
       "settings.code_wrappable": "Блок кода можно переносить",
+      "settings.code_cacheable": "Кэш блока кода",
+      "settings.code_cacheable.tip": "Кэширование блока кода может уменьшить время рендеринга длинных блоков кода, но увеличит использование памяти",
+      "settings.code_cache_max_size": "Максимальный размер кэша",
+      "settings.code_cache_max_size.tip": "Максимальное количество символов, которое может быть кэшировано (тысяч символов), рассчитывается по кэшированному коду. Длина кэшированного кода значительно превышает длину чистого текста.",
+      "settings.code_cache_ttl": "Время жизни кэша",
+      "settings.code_cache_ttl.tip": "Время жизни кэша (минуты)",
+      "settings.code_cache_threshold": "Пороговое значение кэша",
+      "settings.code_cache_threshold.tip": "Минимальное количество символов для кэширования (тысяч символов), рассчитывается по фактическому коду. Будут кэшированы только те блоки кода, которые превышают пороговое значение",
       "settings.context_count": "Контекст",
       "settings.context_count.tip": "Количество предыдущих сообщений, которые нужно сохранить в контексте.",
       "settings.max": "Максимум",
@@ -188,6 +196,7 @@
       "topics.export.image": "Экспорт как изображение",
       "topics.export.joplin": "Экспорт в Joplin",
       "topics.export.md": "Экспорт как markdown",
+      "topics.export.md.reason": "Экспорт в Markdown (с рассуждениями)",
       "topics.export.notion": "Экспорт в Notion",
       "topics.export.obsidian": "Экспорт в Obsidian",
       "topics.export.obsidian_vault": "Хранилище",
@@ -288,7 +297,8 @@
       "select": "Выбрать",
       "topics": "Топики",
       "warning": "Предупреждение",
-      "you": "Вы"
+      "you": "Вы",
+      "reasoning_content": "Глубокий анализ"
     },
     "docs": {
       "title": "Документация"
@@ -727,7 +737,8 @@
       "yi": "Yi",
       "zhinao": "360AI",
       "zhipu": "ZHIPU AI",
-      "voyageai": "Voyage AI"
+      "voyageai": "Voyage AI",
+      "qiniu": "Qiniu"
     },
     "restore": {
       "confirm": "Вы уверены, что хотите восстановить данные?",
@@ -787,8 +798,24 @@
           "title": "Очистка кэша"
         },
         "data.title": "Каталог данных",
+        "divider.basic": "Основные настройки данных",
+        "divider.cloud_storage": "Настройки облачного резервирования",
+        "divider.export_settings": "Настройки экспорта",
+        "divider.third_party": "Сторонние подключения",
         "hour_interval_one": "{{count}} час",
         "hour_interval_other": "{{count}} часов",
+        "export_menu": {
+          "title": "Настройки меню экспорта",
+          "image": "Экспорт как изображение",
+          "markdown": "Экспорт в Markdown",
+          "markdown_reason": "Экспорт в Markdown (с рассуждениями)",
+          "notion": "Экспорт в Notion",
+          "yuque": "Экспорт в Yuque",
+          "obsidian": "Экспорт в Obsidian",
+          "siyuan": "Экспорт в SiYuan Note",
+          "joplin": "Экспорт в Joplin",
+          "docx": "Экспорт в Word"
+        },
         "joplin": {
           "check": {
             "button": "Проверить",
@@ -1064,7 +1091,9 @@
         "registry": "Реестр пакетов",
         "registryTooltip": "Выберите реестр для установки пакетов, если возникают проблемы с сетью при использовании реестра по умолчанию.",
         "registryDefault": "По умолчанию",
-        "not_support": "Модель не поддерживается"
+        "not_support": "Модель не поддерживается",
+        "user": "Пользователь",
+        "system": "Система"
       },
       "messages.divider": "Показывать разделитель между сообщениями",
       "messages.grid_columns": "Количество столбцов сетки сообщений",

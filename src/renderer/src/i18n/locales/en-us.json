@@ -159,6 +159,14 @@
       "save": "Save",
       "settings.code_collapsible": "Code block collapsible",
       "settings.code_wrappable": "Code block wrappable",
+      "settings.code_cacheable": "Code block cache",
+      "settings.code_cacheable.tip": "Caching code blocks can reduce the rendering time of long code blocks, but it will increase memory usage",
+      "settings.code_cache_max_size": "Max cache size",
+      "settings.code_cache_max_size.tip": "The maximum number of characters allowed to be cached (thousand characters), calculated according to the highlighted code. The length of the highlighted code is much longer than the pure text.",
+      "settings.code_cache_ttl": "Cache TTL",
+      "settings.code_cache_ttl.tip": "Cache expiration time (minutes)",
+      "settings.code_cache_threshold": "Cache threshold",
+      "settings.code_cache_threshold.tip": "The minimum number of characters allowed to be cached (thousand characters), calculated according to the actual code. Only code blocks exceeding the threshold will be cached.",
       "settings.context_count": "Context",
       "settings.context_count.tip": "The number of previous messages to keep in the context.",
       "settings.max": "Max",
@@ -188,6 +196,7 @@
       "topics.export.image": "Export as image",
       "topics.export.joplin": "Export to Joplin",
       "topics.export.md": "Export as markdown",
+      "topics.export.md.reason": "Export as Markdown (with reasoning)",
       "topics.export.notion": "Export to Notion",
       "topics.export.obsidian": "Export to Obsidian",
       "topics.export.obsidian_vault": "Vault",
@@ -288,7 +297,8 @@
       "select": "Select",
       "topics": "Topics",
       "warning": "Warning",
-      "you": "You"
+      "you": "You",
+      "reasoning_content": "Deep reasoning"
     },
     "docs": {
       "title": "Docs"
@@ -727,7 +737,8 @@
       "yi": "Yi",
       "zhinao": "360AI",
       "zhipu": "ZHIPU AI",
-      "voyageai": "Voyage AI"
+      "voyageai": "Voyage AI",
+      "qiniu": "Qiniu"
     },
     "restore": {
       "confirm": "Are you sure you want to restore data?",
@@ -787,8 +798,24 @@
           "title": "Clear Cache"
         },
         "data.title": "Data Directory",
+        "divider.basic": "Basic Data Settings",
+        "divider.cloud_storage": "Cloud Backup Settings",
+        "divider.export_settings": "Export Settings",
+        "divider.third_party": "Third-party Connections",
         "hour_interval_one": "{{count}} hour",
         "hour_interval_other": "{{count}} hours",
+        "export_menu": {
+          "title": "Export Menu Settings",
+          "image": "Export as Image",
+          "markdown": "Export as Markdown",
+          "markdown_reason": "Export as Markdown (with reasoning)",
+          "notion": "Export to Notion",
+          "yuque": "Export to Yuque",
+          "obsidian": "Export to Obsidian",
+          "siyuan": "Export to SiYuan Note",
+          "joplin": "Export to Joplin",
+          "docx": "Export as Word"
+        },
         "joplin": {
           "check": {
             "button": "Check",
@@ -1065,7 +1092,9 @@
         "registry": "Package Registry",
         "registryTooltip": "Choose the registry for package installation to resolve network issues with the default registry.",
         "registryDefault": "Default",
-        "not_support": "Model not supported"
+        "not_support": "Model not supported",
+        "user": "User",
+        "system": "System"
       },
       "messages.divider": "Show divider between messages",
       "messages.grid_columns": "Message grid display columns",

@@ -159,6 +159,14 @@
       "save": "保存",
       "settings.code_collapsible": "コードブロック折り畳み",
       "settings.code_wrappable": "コードブロック折り返し",
+      "settings.code_cacheable": "コードブロックキャッシュ",
+      "settings.code_cacheable.tip": "コードブロックのキャッシュは長いコードブロックのレンダリング時間を短縮できますが、メモリ使用量が増加します",
+      "settings.code_cache_max_size": "キャッシュ上限",
+      "settings.code_cache_max_size.tip": "キャッシュできる文字数の上限（千字符）。ハイライトされたコードの長さは純粋なテキストよりもはるかに長くなります。",
+      "settings.code_cache_ttl": "キャッシュ期限",
+      "settings.code_cache_ttl.tip": "キャッシュの有効期限（分単位）。",
+      "settings.code_cache_threshold": "キャッシュ閾値",
+      "settings.code_cache_threshold.tip": "キャッシュできる最小のコード長（千字符）。キャッシュできる最小のコード長を超えたコードブロックのみがキャッシュされます。",
       "settings.context_count": "コンテキスト",
       "settings.context_count.tip": "コンテキストに保持する以前のメッセージの数",
       "settings.max": "最大",
@@ -188,6 +196,7 @@
       "topics.export.image": "画像としてエクスポート",
       "topics.export.joplin": "Joplin にエクスポート",
       "topics.export.md": "Markdownとしてエクスポート",
+      "topics.export.md.reason": "Markdown としてエクスポート (思考内容を含む)",
       "topics.export.notion": "Notion にエクスポート",
       "topics.export.obsidian": "Obsidian にエクスポート",
       "topics.export.obsidian_vault": "保管庫",
@@ -288,7 +297,8 @@
       "select": "選択",
       "topics": "トピック",
       "warning": "警告",
-      "you": "あなた"
+      "you": "あなた",
+      "reasoning_content": "深く考察済み"
     },
     "docs": {
       "title": "ドキュメント"
@@ -727,7 +737,8 @@
       "yi": "零一万物",
       "zhinao": "360智脳",
       "zhipu": "智譜AI",
-      "voyageai": "Voyage AI"
+      "voyageai": "Voyage AI",
+      "qiniu": "七牛云"
     },
     "restore": {
       "confirm": "データを復元しますか？",
@@ -787,8 +798,24 @@
           "title": "キャッシュをクリア"
         },
         "data.title": "データディレクトリ",
+        "divider.basic": "基本データ設定",
+        "divider.cloud_storage": "クラウドバックアップ設定",
+        "divider.export_settings": "エクスポート設定",
+        "divider.third_party": "サードパーティー連携",
         "hour_interval_one": "{{count}} 時間",
         "hour_interval_other": "{{count}} 時間",
+        "export_menu": {
+          "title": "エクスポートメニュー設定",
+          "image": "画像としてエクスポート",
+          "markdown": "Markdownとしてエクスポート",
+          "markdown_reason": "Markdownとしてエクスポート（思考内容を含む）",
+          "notion": "Notionにエクスポート",
+          "yuque": "語雀にエクスポート",
+          "obsidian": "Obsidianにエクスポート",
+          "siyuan": "思源ノートにエクスポート",
+          "joplin": "Joplinにエクスポート",
+          "docx": "Wordとしてエクスポート"
+        },
         "joplin": {
           "check": {
             "button": "確認",
@@ -1064,7 +1091,9 @@
         "registry": "パッケージ管理レジストリ",
         "registryTooltip": "デフォルトのレジストリでネットワークの問題が発生した場合、パッケージインストールに使用するレジストリを選択してください。",
         "registryDefault": "デフォルト",
-        "not_support": "モデルはサポートされていません"
+        "not_support": "モデルはサポートされていません",
+        "user": "ユーザー",
+        "system": "システム"
       },
       "messages.divider": "メッセージ間に区切り線を表示",
       "messages.grid_columns": "メッセージグリッドの表示列数",
