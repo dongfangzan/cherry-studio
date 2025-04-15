@@ -1,24 +1,20 @@
 import {
-  ContentListUnion,
-  createPartFromBase64,
-  FinishReason,
-  GenerateContentResponse,
-  GoogleGenAI
-} from '@google/genai'
-import {
   Content,
-  FileDataPart,
-  GenerateContentStreamResult,
-  GoogleGenerativeAI,
+  ContentListUnion,
+  ContentUnion,
+  createPartFromBase64,
+  File,
+  FinishReason,
+  GenerateContentConfig,
+  GenerateContentResponse,
+  GoogleGenAI,
   HarmBlockThreshold,
   HarmCategory,
-  InlineDataPart,
   Part,
-  RequestOptions,
+  PartUnion,
   SafetySetting,
-  TextPart,
-  Tool
-} from '@google/generative-ai'
+  ToolListUnion
+} from '@google/genai'
 import { isGemmaModel, isVisionModel, isWebSearchModel } from '@renderer/config/models'
 import { getStoreSetting } from '@renderer/hooks/useSettings'
 import i18n from '@renderer/i18n'
@@ -43,18 +39,11 @@ import { ChunkCallbackData, CompletionsParams } from '.'
 import BaseProvider from './BaseProvider'
 
 export default class GeminiProvider extends BaseProvider {
-  private sdk: GoogleGenerativeAI
-  private requestOptions: RequestOptions
-  private imageSdk: GoogleGenAI
+  private sdk: GoogleGenAI
 
   constructor(provider: Provider) {
     super(provider)
-    this.sdk = new GoogleGenerativeAI(this.apiKey)
-    /// this sdk is experimental
-    this.imageSdk = new GoogleGenAI({ apiKey: this.apiKey, httpOptions: { baseUrl: this.getBaseURL() } })
-    this.requestOptions = {
-      baseUrl: this.getBaseURL()
-    }
+    this.sdk = new GoogleGenAI({ vertexai: false, apiKey: this.apiKey, httpOptions: { baseUrl: this.getBaseURL() } })
   }
 
   public getBaseURL(): string {
@@ -76,31 +65,31 @@ export default class GeminiProvider extends BaseProvider {
         inlineData: {
           data,
           mimeType
-        }
-      } as InlineDataPart
+        } as Part['inlineData']
+      }
     }
 
     // Retrieve file from Gemini uploaded files
-    const fileMetadata = await window.api.gemini.retrieveFile(file, this.apiKey)
+    const fileMetadata: File | undefined = await window.api.gemini.retrieveFile(file, this.apiKey)
 
     if (fileMetadata) {
       return {
         fileData: {
           fileUri: fileMetadata.uri,
           mimeType: fileMetadata.mimeType
-        }
-      } as FileDataPart
+        } as Part['fileData']
+      }
     }
 
     // If file is not found, upload it to Gemini
-    const uploadResult = await window.api.gemini.uploadFile(file, this.apiKey)
+    const result = await window.api.gemini.uploadFile(file, this.apiKey)
 
     return {
       fileData: {
-        fileUri: uploadResult.file.uri,
-        mimeType: uploadResult.file.mimeType
-      }
-    } as FileDataPart
+        fileUri: result.uri,
+        mimeType: result.mimeType
+      } as Part['fileData']
+    }
   }
 
   /**
@@ -108,8 +97,8 @@ export default class GeminiProvider extends BaseProvider {
    * @param message - The message
    * @returns The message contents
    */
-  private async getMessageContents(message: Message): Promise<Content> {
-    const role = message.role === 'user' ? 'user' : 'model'
+  private async getMessageContents(message: Message): Promise<ContentUnion> {
+    const role = message.role === 'user' ? 'user' : undefined
 
     const parts: Part[] = [{ text: await this.getMessageContent(message) }]
     // Add any generated images from previous responses
@@ -125,8 +114,8 @@ export default class GeminiProvider extends BaseProvider {
               inlineData: {
                 data: base64Data,
                 mimeType: mimeType
-              }
-            } as InlineDataPart)
+              } as Part['inlineData']
+            })
           }
         }
       }
@@ -139,8 +128,8 @@ export default class GeminiProvider extends BaseProvider {
           inlineData: {
             data: base64Data.base64,
             mimeType: base64Data.mime
-          }
-        } as InlineDataPart)
+          } as Part['inlineData']
+        })
       }
 
       if (file.ext === '.pdf') {
@@ -152,13 +141,17 @@ export default class GeminiProvider extends BaseProvider {
         const fileContent = await (await window.api.file.read(file.id + file.ext)).trim()
         parts.push({
           text: file.origin_name + '\n' + fileContent
-        } as TextPart)
+        })
       }
     }
 
-    return {
-      role,
-      parts
+    if (role) {
+      return {
+        role,
+        parts
+      }
+    } else {
+      return parts
     }
   }
 
@@ -204,7 +197,13 @@ export default class GeminiProvider extends BaseProvider {
    * @param onChunk - The onChunk callback
    * @param onFilterMessages - The onFilterMessages callback
    */
-  public async completions({ messages, assistant, mcpTools, onChunk, onFilterMessages }: CompletionsParams) {
+  public async completions({
+    messages,
+    assistant,
+    mcpTools,
+    onChunk,
+    onFilterMessages
+  }: CompletionsParams): Promise<void> {
     if (assistant.enableGenerateImage) {
       await this.generateImageExp({ messages, assistant, onFilterMessages, onChunk })
     } else {
@@ -219,7 +218,7 @@ export default class GeminiProvider extends BaseProvider {
 
       const userLastMessage = userMessages.pop()
 
-      const history: Content[] = []
+      const history: ContentUnion[] = []
 
       for (const message of userMessages) {
         history.push(await this.getMessageContents(message))
@@ -232,7 +231,7 @@ export default class GeminiProvider extends BaseProvider {
       }
 
       // const tools = mcpToolsToGeminiTools(mcpTools)
-      const tools: Tool[] = []
+      const tools: ToolListUnion = []
       const toolResponses: MCPToolResponse[] = []
 
       if (!WebSearchService.isOverwriteEnabled() && assistant.enableWebSearch && isWebSearchModel(model)) {
@@ -242,55 +241,53 @@ export default class GeminiProvider extends BaseProvider {
         })
       }
 
-      const geminiModel = this.sdk.getGenerativeModel(
-        {
-          model: model.id,
-          ...(isGemmaModel(model) ? {} : { systemInstruction: systemInstruction }),
-          safetySettings: this.getSafetySettings(model.id),
-          tools: tools,
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            temperature: assistant?.settings?.temperature,
-            topP: assistant?.settings?.topP,
-            ...this.getCustomParameters(assistant)
-          }
-        },
-        this.requestOptions
-      )
+      const generateContentConfig: GenerateContentConfig = {
+        safetySettings: this.getSafetySettings(model.id),
+        systemInstruction: isGemmaModel(model) ? undefined : systemInstruction,
+        temperature: assistant?.settings?.temperature,
+        topP: assistant?.settings?.topP,
+        maxOutputTokens: maxTokens,
+        tools: tools,
+        ...this.getCustomParameters(assistant)
+      }
 
-      const chat = geminiModel.startChat({ history })
-      const messageContents = await this.getMessageContents(userLastMessage!)
+      const messageContents: PartUnion[] = (await this.getMessageContents(userLastMessage!)) as PartUnion[]
+
+      const chat = this.sdk.chats.create({
+        model: model.id,
+        config: generateContentConfig,
+        history: history as Content[]
+      })
 
       if (isGemmaModel(model) && assistant.prompt) {
         const isFirstMessage = history.length === 0
-        if (isFirstMessage) {
-          const systemMessage = {
-            role: 'user',
-            parts: [
-              {
-                text:
-                  '<start_of_turn>user\n' +
-                  systemInstruction +
-                  '<end_of_turn>\n' +
-                  '<start_of_turn>user\n' +
-                  messageContents.parts[0].text +
-                  '<end_of_turn>'
-              }
-            ]
-          }
-          messageContents.parts = systemMessage.parts
+        if (isFirstMessage && messageContents) {
+          const systemMessage = [
+            {
+              text:
+                '<start_of_turn>user\n' +
+                systemInstruction +
+                '<end_of_turn>\n' +
+                '<start_of_turn>user\n' +
+                (messageContents[0] as Part).text +
+                '<end_of_turn>'
+            }
+          ] as Part[]
+          messageContents[0] = systemMessage[0]
         }
       }
 
       const start_time_millsec = new Date().getTime()
-      const { abortController, cleanup } = this.createAbortController(userLastMessage?.id)
-      const { signal } = abortController
+      // TODO: 上游SDK没有提供取消请求的接口
+      // const { cleanup, abortController } = this.createAbortController(userLastMessage?.id, true)
 
       if (!streamOutput) {
-        const { response } = await chat.sendMessage(messageContents.parts, { signal })
+        const response = await chat.sendMessage({
+          message: messageContents as PartUnion
+        })
         const time_completion_millsec = new Date().getTime() - start_time_millsec
         onChunk({
-          text: response.candidates?.[0].content.parts[0].text,
+          text: response.text,
           usage: {
             prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
             completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
@@ -306,7 +303,9 @@ export default class GeminiProvider extends BaseProvider {
         return
       }
 
-      const userMessagesStream = await chat.sendMessageStream(messageContents.parts, { signal })
+      const userMessagesStream = await chat.sendMessageStream({
+        message: messageContents as PartUnion
+      })
       let time_first_token_millsec = 0
 
       const processToolUses = async (content: string, idx: number) => {
@@ -321,17 +320,21 @@ export default class GeminiProvider extends BaseProvider {
         )
         if (toolResults && toolResults.length > 0) {
           history.push(messageContents)
-          const newChat = geminiModel.startChat({ history })
-          const newStream = await newChat.sendMessageStream(flatten(toolResults.map((ts) => (ts as Content).parts)), {
-            signal
+          const newChat = this.sdk.chats.create({
+            model: model.id,
+            config: generateContentConfig,
+            history: history as Content[]
+          })
+          const newStream = await newChat.sendMessageStream({
+            message: flatten(toolResults.map((ts) => (ts as Content).parts)) as PartUnion
           })
           await processStream(newStream, idx + 1)
         }
       }
 
-      const processStream = async (stream: GenerateContentStreamResult, idx: number) => {
+      const processStream = async (stream: AsyncGenerator<GenerateContentResponse>, idx: number) => {
         let content = ''
-        for await (const chunk of stream.stream) {
+        for await (const chunk of stream) {
           if (window.keyv.get(EVENT_NAMES.CHAT_COMPLETION_PAUSED)) break
 
           if (time_first_token_millsec == 0) {
@@ -340,11 +343,11 @@ export default class GeminiProvider extends BaseProvider {
 
           const time_completion_millsec = new Date().getTime() - start_time_millsec
 
-          content += chunk.text()
-          processToolUses(content, idx)
+          content += chunk.text
+          await processToolUses(content, idx)
 
           onChunk({
-            text: chunk.text(),
+            text: chunk.text,
             usage: {
               prompt_tokens: chunk.usageMetadata?.promptTokenCount || 0,
               completion_tokens: chunk.usageMetadata?.candidatesTokenCount || 0,
@@ -361,7 +364,7 @@ export default class GeminiProvider extends BaseProvider {
         }
       }
 
-      await processStream(userMessagesStream, 0).finally(cleanup)
+      await processStream(userMessagesStream, 0)
     }
   }
 
@@ -372,39 +375,51 @@ export default class GeminiProvider extends BaseProvider {
    * @param onResponse - The onResponse callback
    * @returns The translated message
    */
-  async translate(message: Message, assistant: Assistant, onResponse?: (text: string) => void) {
+  public async translate(message: Message, assistant: Assistant, onResponse?: (text: string) => void) {
     const defaultModel = getDefaultModel()
     const { maxTokens } = getAssistantSettings(assistant)
     const model = assistant.model || defaultModel
-
-    const geminiModel = this.sdk.getGenerativeModel(
-      {
-        model: model.id,
-        ...(isGemmaModel(model) ? {} : { systemInstruction: assistant.prompt }),
-        generationConfig: {
-          maxOutputTokens: maxTokens,
-          temperature: assistant?.settings?.temperature
-        }
-      },
-      this.requestOptions
-    )
 
     const content =
       isGemmaModel(model) && assistant.prompt
         ? `<start_of_turn>user\n${assistant.prompt}<end_of_turn>\n<start_of_turn>user\n${message.content}<end_of_turn>`
         : message.content
-
     if (!onResponse) {
-      const { response } = await geminiModel.generateContent(content)
-      return response.text()
+      const response = await this.sdk.models.generateContent({
+        model: model.id,
+        config: {
+          maxOutputTokens: maxTokens,
+          temperature: assistant?.settings?.temperature,
+          systemInstruction: isGemmaModel(model) ? undefined : assistant.prompt
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: content }]
+          }
+        ]
+      })
+      return response.text || ''
     }
 
-    const response = await geminiModel.generateContentStream(content)
-
+    const response = await this.sdk.models.generateContentStream({
+      model: model.id,
+      config: {
+        maxOutputTokens: maxTokens,
+        temperature: assistant?.settings?.temperature,
+        systemInstruction: isGemmaModel(model) ? undefined : assistant.prompt
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: content }]
+        }
+      ]
+    })
     let text = ''
 
-    for await (const chunk of response.stream) {
-      text += chunk.text()
+    for await (const chunk of response) {
+      text += chunk.text
       onResponse(text)
     }
 
@@ -442,25 +457,24 @@ export default class GeminiProvider extends BaseProvider {
       content: userMessageContent
     }
 
-    const geminiModel = this.sdk.getGenerativeModel(
-      {
-        model: model.id,
-        ...(isGemmaModel(model) ? {} : { systemInstruction: systemMessage.content }),
-        generationConfig: {
-          temperature: assistant?.settings?.temperature
-        }
-      },
-      this.requestOptions
-    )
-
-    const chat = await geminiModel.startChat()
     const content = isGemmaModel(model)
       ? `<start_of_turn>user\n${systemMessage.content}<end_of_turn>\n<start_of_turn>user\n${userMessage.content}<end_of_turn>`
       : userMessage.content
 
-    const { response } = await chat.sendMessage(content)
+    const response = await this.sdk.models.generateContent({
+      model: model.id,
+      config: {
+        systemInstruction: isGemmaModel(model) ? undefined : systemMessage.content
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: content }]
+        }
+      ]
+    })
 
-    return removeSpecialCharactersForTopicName(response.text())
+    return removeSpecialCharactersForTopicName(response.text || '')
   }
 
   /**
@@ -471,24 +485,23 @@ export default class GeminiProvider extends BaseProvider {
    */
   public async generateText({ prompt, content }: { prompt: string; content: string }): Promise<string> {
     const model = getDefaultModel()
-    const systemMessage = { role: 'system', content: prompt }
-
-    const geminiModel = this.sdk.getGenerativeModel(
-      {
-        model: model.id,
-        ...(isGemmaModel(model) ? {} : { systemInstruction: systemMessage.content })
-      },
-      this.requestOptions
-    )
-
-    const chat = await geminiModel.startChat()
-    const messageContent = isGemmaModel(model)
+    const MessageContent = isGemmaModel(model)
       ? `<start_of_turn>user\n${prompt}<end_of_turn>\n<start_of_turn>user\n${content}<end_of_turn>`
       : content
+    const response = await this.sdk.models.generateContent({
+      model: model.id,
+      config: {
+        systemInstruction: isGemmaModel(model) ? undefined : prompt
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: MessageContent }]
+        }
+      ]
+    })
 
-    const { response } = await chat.sendMessage(messageContent)
-
-    return response.text()
+    return response.text || ''
   }
 
   /**
@@ -518,24 +531,28 @@ export default class GeminiProvider extends BaseProvider {
       content: messages.map((m) => m.content).join('\n')
     }
 
-    const geminiModel = this.sdk.getGenerativeModel(
-      {
-        model: model.id,
-        systemInstruction: systemMessage.content,
-        generationConfig: {
-          temperature: assistant?.settings?.temperature
+    const content = isGemmaModel(model)
+      ? `<start_of_turn>user\n${systemMessage.content}<end_of_turn>\n<start_of_turn>user\n${userMessage.content}<end_of_turn>`
+      : userMessage.content
+
+    const response = await this.sdk.models.generateContent({
+      model: model.id,
+      config: {
+        systemInstruction: isGemmaModel(model) ? undefined : systemMessage.content,
+        temperature: assistant?.settings?.temperature,
+        httpOptions: {
+          timeout: 20 * 1000
         }
       },
-      {
-        ...this.requestOptions,
-        timeout: 20 * 1000
-      }
-    )
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: content }]
+        }
+      ]
+    })
 
-    const chat = await geminiModel.startChat()
-    const { response } = await chat.sendMessage(userMessage.content)
-
-    return response.text()
+    return response.text || ''
   }
 
   /**
@@ -567,7 +584,7 @@ export default class GeminiProvider extends BaseProvider {
       throw new Error('No user message found')
     }
 
-    const history: Content[] = []
+    const history: ContentUnion[] = []
 
     for (const message of userMessages) {
       history.push(await this.getMessageContents(message))
@@ -629,7 +646,7 @@ export default class GeminiProvider extends BaseProvider {
     maxTokens?: number
   ): Promise<GenerateContentResponse> {
     try {
-      return await this.imageSdk.models.generateContent({
+      return await this.sdk.models.generateContent({
         model: modelId,
         contents: contents,
         config: {
@@ -650,7 +667,7 @@ export default class GeminiProvider extends BaseProvider {
     maxTokens?: number
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     try {
-      return await this.imageSdk.models.generateContentStream({
+      return await this.sdk.models.generateContentStream({
         model: modelId,
         contents: contents,
         config: {
@@ -682,8 +699,11 @@ export default class GeminiProvider extends BaseProvider {
    * @param response - Gemini响应
    * @param onChunk - 处理生成块的回调
    */
-  private processGeminiImageResponse(response: any, onChunk: (chunk: ChunkCallbackData) => void): void {
-    const parts = response.candidates[0].content.parts
+  private processGeminiImageResponse(
+    response: GenerateContentResponse,
+    onChunk: (chunk: ChunkCallbackData) => void
+  ): void {
+    const parts = response.candidates?.[0]?.content?.parts
     if (!parts) {
       return
     }
@@ -695,7 +715,7 @@ export default class GeminiProvider extends BaseProvider {
           return null
         }
         const dataPrefix = `data:${part.inlineData.mimeType || 'image/png'};base64,`
-        return part.inlineData.data.startsWith('data:') ? part.inlineData.data : dataPrefix + part.inlineData.data
+        return part.inlineData.data?.startsWith('data:') ? part.inlineData.data : dataPrefix + part.inlineData.data
       })
 
     // 提取文本数据
@@ -709,7 +729,7 @@ export default class GeminiProvider extends BaseProvider {
       text,
       generateImage: {
         type: 'base64',
-        images
+        images: images.filter((image) => image !== null)
       },
       usage: {
         prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
@@ -732,18 +752,16 @@ export default class GeminiProvider extends BaseProvider {
       return { valid: false, error: new Error('No model found') }
     }
 
-    const body = {
-      model: model.id,
-      messages: [{ role: 'user', content: 'hi' }],
-      max_tokens: 100,
-      stream: false
-    }
-
     try {
-      const geminiModel = this.sdk.getGenerativeModel({ model: body.model }, this.requestOptions)
-      const result = await geminiModel.generateContent(body.messages[0].content)
+      const result = await this.sdk.models.generateContent({
+        model: model.id,
+        contents: [{ role: 'user', parts: [{ text: 'hi' }] }],
+        config: {
+          maxOutputTokens: 100
+        }
+      })
       return {
-        valid: !isEmpty(result.response.text()),
+        valid: !isEmpty(result.text),
         error: null
       }
     } catch (error: any) {
@@ -785,7 +803,10 @@ export default class GeminiProvider extends BaseProvider {
    * @returns The embedding dimensions
    */
   public async getEmbeddingDimensions(model: Model): Promise<number> {
-    const data = await this.sdk.getGenerativeModel({ model: model.id }, this.requestOptions).embedContent('hi')
-    return data.embedding.values.length
+    const data = await this.sdk.models.embedContent({
+      model: model.id,
+      contents: [{ role: 'user', parts: [{ text: 'hi' }] }]
+    })
+    return data.embeddings?.[0]?.values?.length || 0
   }
 }
