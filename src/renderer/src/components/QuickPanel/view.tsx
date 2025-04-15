@@ -1,10 +1,11 @@
-import { CheckOutlined, RightOutlined } from '@ant-design/icons'
+import { RightOutlined } from '@ant-design/icons'
 import { isMac } from '@renderer/config/constant'
 import { classNames } from '@renderer/utils'
 import { Flex } from 'antd'
 import { theme } from 'antd'
 import Color from 'color'
 import { t } from 'i18next'
+import { Check } from 'lucide-react'
 import React, { use, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import * as tinyPinyin from 'tiny-pinyin'
@@ -350,6 +351,7 @@ export const QuickPanelView: React.FC<Props> = ({ setInputText }) => {
           break
 
         case 'Enter':
+        case 'NumpadEnter':
           if (isComposing.current) return
 
           if (list?.[index]) {
@@ -443,7 +445,7 @@ export const QuickPanelView: React.FC<Props> = ({ setInputText }) => {
                   {item.suffix ? (
                     item.suffix
                   ) : item.isSelected ? (
-                    <CheckOutlined />
+                    <Check />
                   ) : (
                     item.isMenu && !item.disabled && <RightOutlined />
                   )}
@@ -545,6 +547,7 @@ const QuickPanelBody = styled.div`
     background-color: rgba(240, 240, 240, 0.5);
     backdrop-filter: blur(35px) saturate(150%);
     z-index: -1;
+    border-radius: inherit;
 
     body[theme-mode='dark'] & {
       background-color: rgba(40, 40, 40, 0.4);
@@ -567,12 +570,12 @@ const QuickPanelFooterTips = styled.div<{ $footerWidth: number }>`
   justify-content: flex-end;
   flex-shrink: 0;
   gap: 16px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-text-3);
 `
 
 const QuickPanelFooterTitle = styled.div`
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -603,6 +606,7 @@ const QuickPanelItem = styled.div`
   cursor: pointer;
   transition: background-color 0.1s ease;
   margin-bottom: 1px;
+  font-family: Ubuntu;
   &.selected {
     background-color: var(--selected-color);
     &.focused {
@@ -629,13 +633,22 @@ const QuickPanelItemLeft = styled.div`
 `
 
 const QuickPanelItemIcon = styled.span`
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  > svg {
+    width: 1em;
+    height: 1em;
+    color: var(--color-text-3);
+  }
 `
 
 const QuickPanelItemLabel = styled.span`
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -665,4 +678,9 @@ const QuickPanelItemSuffixIcon = styled.span`
   align-items: center;
   justify-content: flex-end;
   gap: 3px;
+  > svg {
+    width: 1em;
+    height: 1em;
+    color: var(--color-text-3);
+  }
 `
