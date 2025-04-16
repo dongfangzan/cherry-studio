@@ -97,8 +97,8 @@ export default class GeminiProvider extends BaseProvider {
    * @param message - The message
    * @returns The message contents
    */
-  private async getMessageContents(message: Message): Promise<ContentUnion> {
-    const role = message.role === 'user' ? 'user' : undefined
+  private async getMessageContents(message: Message): Promise<Content> {
+    const role = message.role === 'user' ? 'user' : 'model'
 
     const parts: Part[] = [{ text: await this.getMessageContent(message) }]
     // Add any generated images from previous responses
@@ -145,13 +145,9 @@ export default class GeminiProvider extends BaseProvider {
       }
     }
 
-    if (role) {
-      return {
-        role,
-        parts
-      }
-    } else {
-      return parts
+    return {
+      role,
+      parts: parts
     }
   }
 
@@ -218,7 +214,7 @@ export default class GeminiProvider extends BaseProvider {
 
       const userLastMessage = userMessages.pop()
 
-      const history: ContentUnion[] = []
+      const history: Content[] = []
 
       for (const message of userMessages) {
         history.push(await this.getMessageContents(message))
@@ -251,12 +247,12 @@ export default class GeminiProvider extends BaseProvider {
         ...this.getCustomParameters(assistant)
       }
 
-      const messageContents: PartUnion[] = (await this.getMessageContents(userLastMessage!)) as PartUnion[]
+      const messageContents: Content = await this.getMessageContents(userLastMessage!)
 
       const chat = this.sdk.chats.create({
         model: model.id,
         config: generateContentConfig,
-        history: history as Content[]
+        history: history
       })
 
       if (isGemmaModel(model) && assistant.prompt) {
@@ -269,21 +265,46 @@ export default class GeminiProvider extends BaseProvider {
                 systemInstruction +
                 '<end_of_turn>\n' +
                 '<start_of_turn>user\n' +
-                (messageContents[0] as Part).text +
+                (messageContents?.parts?.[0] as Part).text +
                 '<end_of_turn>'
             }
           ] as Part[]
-          messageContents[0] = systemMessage[0]
+          if (messageContents && messageContents.parts) {
+            messageContents.parts[0] = systemMessage[0]
+          }
         }
       }
 
       const start_time_millsec = new Date().getTime()
-      // TODO: 上游SDK没有提供取消请求的接口
-      // const { cleanup, abortController } = this.createAbortController(userLastMessage?.id, true)
+
+      const { cleanup, abortController } = this.createAbortController(userLastMessage?.id, true)
+      const signalProxy = {
+        _originalSignal: abortController.signal,
+
+        addEventListener: (eventName: string, listener: () => void) => {
+          if (eventName === 'abort') {
+            abortController.signal.addEventListener('abort', listener)
+          }
+        },
+        removeEventListener: (eventName: string, listener: () => void) => {
+          if (eventName === 'abort') {
+            abortController.signal.removeEventListener('abort', listener)
+          }
+        },
+        get aborted() {
+          return abortController.signal.aborted
+        }
+      }
 
       if (!streamOutput) {
         const response = await chat.sendMessage({
-          message: messageContents as PartUnion
+          message: messageContents as PartUnion,
+          config: {
+            ...generateContentConfig,
+            httpOptions: {
+              signal: signalProxy as any
+            }
+          }
         })
         const time_completion_millsec = new Date().getTime() - start_time_millsec
         onChunk({
@@ -304,7 +325,13 @@ export default class GeminiProvider extends BaseProvider {
       }
 
       const userMessagesStream = await chat.sendMessageStream({
-        message: messageContents as PartUnion
+        message: messageContents as PartUnion,
+        config: {
+          ...generateContentConfig,
+          httpOptions: {
+            signal: signalProxy as any
+          }
+        }
       })
       let time_first_token_millsec = 0
 
@@ -326,7 +353,13 @@ export default class GeminiProvider extends BaseProvider {
             history: history as Content[]
           })
           const newStream = await newChat.sendMessageStream({
-            message: flatten(toolResults.map((ts) => (ts as Content).parts)) as PartUnion
+            message: flatten(toolResults.map((ts) => (ts as Content).parts)) as PartUnion,
+            config: {
+              ...generateContentConfig,
+              httpOptions: {
+                signal: signalProxy as any
+              }
+            }
           })
           await processStream(newStream, idx + 1)
         }
@@ -364,7 +397,7 @@ export default class GeminiProvider extends BaseProvider {
         }
       }
 
-      await processStream(userMessagesStream, 0)
+      await processStream(userMessagesStream, 0).finally(cleanup)
     }
   }
 
@@ -584,7 +617,7 @@ export default class GeminiProvider extends BaseProvider {
       throw new Error('No user message found')
     }
 
-    const history: ContentUnion[] = []
+    const history: Content[] = []
 
     for (const message of userMessages) {
       history.push(await this.getMessageContents(message))
@@ -593,10 +626,7 @@ export default class GeminiProvider extends BaseProvider {
     const userLastMessageContent = await this.getMessageContents(userLastMessage)
     const allContents = [...history, userLastMessageContent]
 
-    let contents: ContentListUnion = allContents.length > 0 ? (allContents as ContentListUnion) : []
-
-    contents = await this.addImageFileToContents(userLastMessage, contents)
-
+    const contents = allContents.length > 0 ? allContents : []
     if (!streamOutput) {
       const response = await this.callGeminiGenerateContent(model.id, contents, maxTokens)
 
@@ -621,7 +651,7 @@ export default class GeminiProvider extends BaseProvider {
    * @param contents - 内容列表
    * @returns 更新后的内容列表
    */
-  private async addImageFileToContents(message: Message, contents: ContentListUnion): Promise<ContentListUnion> {
+  private async addImageFileToContents(message: Message, contents: ContentUnion[]): Promise<ContentUnion[]> {
     if (message.files && message.files.length > 0) {
       const file = message.files[0]
       const fileContent = await window.api.file.base64Image(file.id + file.ext)
