@@ -1,4 +1,3 @@
-import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import { resolve } from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -6,7 +5,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 const visualizerPlugin = (type: 'renderer' | 'main') => {
   return process.env[`VISUALIZER_${type.toUpperCase()}`] ? [visualizer({ open: true })] : []
 }
-
+const viteReact = await import('@vitejs/plugin-react')
 export default defineConfig({
   main: {
     plugins: [
@@ -51,7 +50,7 @@ export default defineConfig({
   },
   renderer: {
     plugins: [
-      react({
+      viteReact({
         babel: {
           plugins: [
             [
