@@ -1,8 +1,6 @@
 import {
   Content,
   ContentListUnion,
-  ContentUnion,
-  createPartFromBase64,
   File,
   FinishReason,
   GenerateContentConfig,
@@ -643,25 +641,6 @@ export default class GeminiProvider extends BaseProvider {
     for await (const chunk of response) {
       this.processGeminiImageResponse(chunk, onChunk)
     }
-  }
-
-  /**
-   * 添加图片文件到内容列表
-   * @param message - 用户消息
-   * @param contents - 内容列表
-   * @returns 更新后的内容列表
-   */
-  private async addImageFileToContents(message: Message, contents: ContentUnion[]): Promise<ContentUnion[]> {
-    if (message.files && message.files.length > 0) {
-      const file = message.files[0]
-      const fileContent = await window.api.file.base64Image(file.id + file.ext)
-
-      if (fileContent && fileContent.base64) {
-        const contentsArray = Array.isArray(contents) ? contents : [contents]
-        return [...contentsArray, createPartFromBase64(fileContent.base64, fileContent.mime)]
-      }
-    }
-    return contents
   }
 
   /**
