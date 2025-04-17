@@ -1,7 +1,6 @@
 import { DEFAULT_MAX_TOKENS } from '@renderer/config/constant'
 import {
   getOpenAIWebSearchParams,
-  isGrokModel,
   isGrokReasoningModel,
   isHunyuanSearchModel,
   isOpenAIoSeries,
@@ -294,7 +293,7 @@ export default class OpenAIProvider extends BaseProvider {
    * @returns True if the model is an OpenAI reasoning model, false otherwise
    */
   private isOpenAIReasoning(model: Model) {
-    return model.id.startsWith('o1') || model.id.startsWith('o3')
+    return model.id.startsWith('o1') || model.id.startsWith('o3') || model.id.startsWith('o4')
   }
 
   /**
@@ -333,12 +332,7 @@ export default class OpenAIProvider extends BaseProvider {
       userMessages.push(await this.getMessageParam(message, model))
     }
 
-    const isOpenAIReasoning = this.isOpenAIReasoning(model)
-
     const isSupportStreamOutput = () => {
-      if (isOpenAIReasoning) {
-        return false
-      }
       return streamOutput
     }
 
@@ -379,13 +373,14 @@ export default class OpenAIProvider extends BaseProvider {
     let time_first_content_millsec = 0
     const start_time_millsec = new Date().getTime()
     const lastUserMessage = _messages.findLast((m) => m.role === 'user')
+
     const { abortController, cleanup, signalPromise } = this.createAbortController(lastUserMessage?.id, true)
     const { signal } = abortController
     await this.checkIsCopilot()
 
-    // Grok 模型要求每条消息都不能为空，所以当是 Grok 模型且 systemMessage 内容为空时不发送 systemMessage
+    //当 systemMessage 内容为空时不发送 systemMessage
     let reqMessages: ChatCompletionMessageParam[]
-    if (isGrokModel(model) && !systemMessage.content) {
+    if (!systemMessage.content) {
       reqMessages = [...userMessages]
     } else {
       reqMessages = [systemMessage, ...userMessages].filter(Boolean) as ChatCompletionMessageParam[]
@@ -509,7 +504,7 @@ export default class OpenAIProvider extends BaseProvider {
 
       await processToolUses(content, idx)
     }
-
+    // console.log('reqMessages', reqMessages)
     const stream = await this.sdk.chat.completions
       // @ts-ignore key is not typed
       .create(
